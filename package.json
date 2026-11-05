@@ -1,0 +1,13 @@
+{
+  "name": "air-korea-dust-app",
+  "version": "1.0.0",
+  "description": "실시간 시도별 대기오염 측정 정보 웹 애플리케이션",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+

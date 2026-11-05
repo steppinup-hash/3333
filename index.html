@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>실시간 대기오염 측정 정보</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 헤더 영역 -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1><i class="fa-solid fa-wind"></i> 시도별 실시간 대기오염 정보</h1>
+        <p class="subtitle">공공데이터포털 에어코리아(한국환경공단) 실시간 측정 데이터</p>
+      </div>
+    </header>
+
+    <!-- 설정 및 컨트롤 패널 -->
+    <section class="control-panel">
+      <!-- API 키 설정 (테스트용) -->
+      <div class="config-card">
+        <div class="config-row">
+          <label for="serviceKeyInput"><i class="fa-solid fa-key"></i> 공공데이터 인증키(Service Key):</label>
+          <div class="input-with-button">
+            <input type="text" id="serviceKeyInput" placeholder="Vercel 배포 시 환경변수(KEY)가 자동 사용되므로 비워두셔도 됩니다">
+            <button id="saveKeyBtn" class="btn-sub" type="button">키 적용</button>
+          </div>
+        </div>
+        <small class="help-text">
+          * Vercel 배포 환경에서는 서버리스 함수(<code>/api/dust</code>)가 <code>.env.local</code>의 <code>KEY</code> 환경변수를 자동으로 사용하여 키가 안전하게 보호됩니다.
+        </small>
+      </div>
+
+      <!-- 시도 선택 및 조회 폼 -->
+      <div class="search-card">
+        <form id="searchForm" class="search-form">
+          <div class="form-group">
+            <label for="sidoSelect"><i class="fa-solid fa-location-dot"></i> 시도 선택</label>
+            <select id="sidoSelect">
+              <option value="서울" selected>서울</option>
+              <option value="부산">부산</option>
+              <option value="대구">대구</option>
+              <option value="인천">인천</option>
+              <option value="광주">광주</option>
+              <option value="대전">대전</option>
+              <option value="울산">울산</option>
+              <option value="경기">경기</option>
+              <option value="강원">강원</option>
+              <option value="충북">충북</option>
+              <option value="충남">충남</option>
+              <option value="전북">전북</option>
+              <option value="전남">전남</option>
+              <option value="경북">경북</option>
+              <option value="경남">경남</option>
+              <option value="제주">제주</option>
+              <option value="세종">세종</option>
+            </select>
+          </div>
+
+          <div class="btn-group">
+            <button type="submit" id="searchBtn" class="btn-primary">
+              <i class="fa-solid fa-magnifying-glass"></i> 실시간 조회
+            </button>
+            <button type="button" id="mockBtn" class="btn-secondary" title="인증키 없이 조건 확인용 샘플 데이터를 불러옵니다">
+              <i class="fa-solid fa-flask"></i> 샘플 데이터로 테스트
+            </button>
+          </div>
+        </form>
+
+        <!-- 정렬 및 필터 -->
+        <div class="filter-bar">
+          <span id="currentStatusText" class="status-badge">대기 중</span>
+          <div class="filter-controls">
+            <label for="sortSelect">정렬:</label>
+            <select id="sortSelect">
+              <option value="stationName">측정소명 순</option>
+              <option value="pm10Desc">미세먼지 높은 순</option>
+              <option value="pm10Asc">미세먼지 낮은 순</option>
+              <option value="pm25Desc">초미세먼지 높은 순</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 요약 통계 영역 -->
+    <section class="summary-section" id="summarySection" style="display: none;">
+      <div class="summary-card">
+        <div class="summary-header">
+          <span id="selectedRegionName">서울</span> 지역 대기질 요약
+          <span id="dataTimeBadge" class="time-badge">-</span>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="label">총 측정소</div>
+            <div class="value" id="totalStationCount">0곳</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">미세먼지 (PM10) 평균</div>
+            <div class="value" id="avgPm10">- ㎍/㎥</div>
+            <div class="sub-text" id="validPm10Count">(유효 측정소 -곳)</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">초미세먼지 (PM2.5) 평균</div>
+            <div class="value" id="avgPm25">- ㎍/㎥</div>
+            <div class="sub-text" id="validPm25Count">(유효 측정소 -곳)</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">오존 (O₃) 평균</div>
+            <div class="value" id="avgO3">- ppm</div>
+            <div class="sub-text" id="validO3Count">(유효 측정소 -곳)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 범례 안내 -->
+    <section class="legend-bar">
+      <span class="legend-title">통합 대기 등급:</span>
+      <span class="badge badge-grade-1"><i class="fa-solid fa-face-smile"></i> 좋음 (1)</span>
+      <span class="badge badge-grade-2"><i class="fa-solid fa-face-meh"></i> 보통 (2)</span>
+      <span class="badge badge-grade-3"><i class="fa-solid fa-face-frown"></i> 나쁨 (3)</span>
+      <span class="badge badge-grade-4"><i class="fa-solid fa-face-dizzy"></i> 매우나쁨 (4)</span>
+      <span class="badge badge-grade-empty"><i class="fa-solid fa-question"></i> 등급 없음 / 미측정 (회색)</span>
+    </section>
+
+    <!-- 결과 리스트 영역 -->
+    <main class="results-section">
+      <div id="loadingSpinner" class="loading-state" style="display: none;">
+        <div class="spinner"></div>
+        <p>대기오염 측정 데이터를 불러오는 중입니다...</p>
+      </div>
+
+      <div id="errorMessage" class="error-banner" style="display: none;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="errorText">오류가 발생했습니다.</span>
+      </div>
+
+      <div id="stationGrid" class="station-grid">
+        <!-- 자바스크립트로 측정소 카드들이 동적 렌더링됩니다 -->
+      </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="app-footer">
+      <p>데이터 출처: 공공데이터포털 (한국환경공단 에어코리아 대기오염정보)</p>
+      <p class="copyright">반응형 대기오염 측정 정보 웹 애플리케이션</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
